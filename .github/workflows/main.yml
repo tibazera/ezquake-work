@@ -23,7 +23,7 @@ jobs:
           libcurl4-openssl-dev libexpat1-dev libfreetype-dev libfuse3-dev \
           libjansson-dev libjpeg-dev libminizip-dev libpcre2-dev libpng-dev \
           libsdl2-2.0-0 libsdl2-dev libsndfile1-dev libspeex-dev \
-          libspeexdsp-dev ninja-build unzip
+          libspeexdsp-dev ninja-build unzip sed
         git config --global --add safe.directory $PWD
 
     - name: Check out code
@@ -31,9 +31,12 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Clone qwprot submodule
+    - name: Clone qwprot (QW-Community fork)
+      run: git clone https://github.com/QW-Community/qwprot.git src/qwprot
+
+    - name: Fix impulse_pred (not in official qwprot protocol.h)
       run: |
-        git clone https://github.com/QW-Group/qwprot.git src/qwprot
+        sed -i 's/pmove\.cmd\.impulse_pred/pmove.cmd.impulse/g' src/pmove.c
 
     - name: Fetch upstream tags
       run: |
@@ -50,8 +53,7 @@ jobs:
 
     - name: Generate AppImage
       run: |
-        export EXECUTABLE=$(echo build-dynamic/Release/ezquake* | head -1)
-        [ -z "$EXECUTABLE" ] && export EXECUTABLE=$(find build-dynamic -name "ezquake*" -type f | head -1)
+        export EXECUTABLE=$(find build-dynamic -name "ezquake*" -type f | head -1)
         ./misc/appimage/appimage-manual_creation.sh
         mv ezQuake-x86_64.AppImage build-dynamic/Release/
 
@@ -73,44 +75,56 @@ jobs:
         fetch-depth: 0
 
     - name: Clone vcpkg
+      shell: pwsh
       run: |
         git clone https://github.com/Microsoft/vcpkg.git vcpkg
         .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-      shell: pwsh
 
-    - name: Clone qwprot submodule
-      run: git clone https://github.com/QW-Group/qwprot.git src/qwprot
+    - name: Clone qwprot (QW-Community fork)
       shell: pwsh
+      run: git clone https://github.com/QW-Community/qwprot.git src/qwprot
+
+    - name: Fix impulse_pred (not in official qwprot protocol.h)
+      shell: pwsh
+      run: |
+        (Get-Content src/pmove.c) -replace 'pmove\.cmd\.impulse_pred', 'pmove.cmd.impulse' | Set-Content src/pmove.c
 
     - name: Add vcpkg baseline to vcpkg.json
+      shell: pwsh
       run: |
         $vcpkgCommit = git -C vcpkg rev-parse HEAD
         $json = Get-Content vcpkg.json -Raw | ConvertFrom-Json
         $json | Add-Member -NotePropertyName "builtin-baseline" -NotePropertyValue $vcpkgCommit -Force
         $json | ConvertTo-Json -Depth 10 | Set-Content vcpkg.json
-      shell: pwsh
 
     - name: Fetch upstream tags
+      shell: pwsh
+      continue-on-error: true
       run: |
         git remote add upstream https://github.com/QW-Group/ezquake-source.git
         git fetch --tags --no-recurse-submodules upstream
-      shell: pwsh
-      continue-on-error: true
 
     - name: Set library build type to release
+      shell: pwsh
       run: |
         Get-ChildItem cmake/triplets/*.cmake | ForEach-Object {
           Add-Content $_.FullName "`nset(VCPKG_BUILD_TYPE release)"
         }
-      shell: pwsh
 
-    - name: Configure
-      run: cmake --preset msbuild-x64
+    - uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: "~3.28.0"
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+
+    - name: Configure and Build
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: msbuild-x64
+        buildPreset: msbuild-x64-release
       env:
         VCPKG_ROOT: ${{ github.workspace }}\vcpkg
-
-    - name: Build
-      run: cmake --build build-msbuild-x64 --config Release
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
