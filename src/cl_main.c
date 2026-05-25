@@ -591,9 +591,6 @@ unsigned int CL_SupportedMVDExtensions1(void)
 	}
 #endif
 
-#ifdef MVD_PEXT1_SPRAYS
-	extensions_supported |= MVD_PEXT1_SPRAYS;
-#endif
 
 #ifdef MVD_PEXT1_DEBUG_ANTILAG
 	if (cl_debug_antilag_send.integer) {
