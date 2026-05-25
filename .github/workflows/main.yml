@@ -23,19 +23,15 @@ jobs:
             name: ezQuake-linux-x86_64
             artifact: "ezQuake-x86_64.AppImage"
             cflags: "-march=nehalem"
-            packages: ["build-essential", "ca-certificates", "cmake", "curl", "file", "git", "libcurl4-openssl-dev", "libexpat1-dev", "libfreetype-dev", "libfuse3-dev", "libjansson-dev", "libjpeg-dev", "libminizip-dev", "libpcre2-dev", "libpng-dev", "libsdl2-2.0-0", "libsdl2-dev", "libsndfile1-dev", "libspeex-dev", "libspeexdsp-dev", "ninja-build", "unzip"]
-            container:
-              image: debian:testing
-              options: --privileged
+            packages: "build-essential ca-certificates cmake curl file git libcurl4-openssl-dev libexpat1-dev libfreetype-dev libfuse3-dev libjansson-dev libjpeg-dev libminizip-dev libpcre2-dev libpng-dev libsdl2-2.0-0 libsdl2-dev libsndfile1-dev libspeex-dev libspeexdsp-dev ninja-build unzip"
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
 
     steps:
     - name: Prepare Linux environment
       run: |
-        apt-get -qq update && apt-get -qq install --no-install-recommends ${{ join(matrix.packages, ' ') }}
+        apt-get -qq update && apt-get -qq install --no-install-recommends ${{ matrix.packages }}
         git config --global --add safe.directory $PWD
       if: matrix.os == 'ubuntu-latest'
 
@@ -45,12 +41,14 @@ jobs:
         fetch-depth: 0
 
     - name: Initialize submodules
+      shell: bash
       run: |
         git submodule add https://github.com/Microsoft/vcpkg vcpkg || true
         git submodule add https://github.com/QW-Group/qwprot src/qwprot || true
         git submodule update --init --recursive
 
     - name: Fetch upstream tags for version metadata
+      shell: bash
       run: |
         git remote add upstream https://github.com/QW-Group/ezquake-source.git || true
         git fetch --tags --no-recurse-submodules upstream
@@ -58,9 +56,40 @@ jobs:
     - name: Set library build type to release
       shell: bash
       run: |
-        for x in cmake/triplets/* vcpkg/triplets/* vcpkg/triplets/community/*; do
-          if [[ -f $x ]]; then
-            echo 'set(VCPKG_BUILD_TYPE release)' >> $x
+        for x in cmake/triplets/*; do
+          if [ -f "$x" ]; then
+            echo 'set(VCPKG_BUILD_TYPE release)' >> "$x"
           fi
         done
-      if: matrix.os != 'ubuntu-late
+      if: matrix.os == 'windows-latest'
+
+    - uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: "~3.28.0"
+      if: matrix.os == 'windows-latest'
+
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      if: matrix.os == 'windows-latest'
+
+    - name: Run CMake
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: ${{ matrix.configurePreset }}
+        buildPreset: ${{ matrix.buildPreset }}
+      env:
+        CFLAGS: ${{ matrix.cflags }}
+
+    - name: Generate Linux AppImage
+      run: |
+        export EXECUTABLE=$(echo build-${{ matrix.configurePreset }}/Release/ezquake*)
+        ./misc/appimage/appimage-manual_creation.sh
+        mv ezQuake-x86_64.AppImage build-${{ matrix.configurePreset }}/Release/
+      if: matrix.os == 'ubuntu-latest'
+
+    - name: Archive client
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        path: build-${{ matrix.configurePreset }}/Release/${{ matrix.artifact }}
+        compression-level: 9
