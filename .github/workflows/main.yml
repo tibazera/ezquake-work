@@ -39,6 +39,8 @@ jobs:
         sed -i 's/pmove\.cmd\.impulse_pred/pmove.cmd.impulse/g' src/pmove.c
         grep -q 'client_ruleset' src/cmdline_params_ids.h || \
           sed -i '/client_noscripts/a CMDLINE_DEF(client_ruleset, "-ruleset"),' src/cmdline_params_ids.h
+        grep -q 'IN_SafeSwitch' src/cl_input.c || \
+          echo 'void IN_SafeSwitch(void) { }' >> src/cl_input.c
 
     - name: Fetch upstream tags
       run: |
@@ -94,6 +96,10 @@ jobs:
         if ($ids -notmatch 'client_ruleset') {
           $ids = $ids -replace '(client_noscripts.*\n)', "`$1CMDLINE_DEF(client_ruleset, `"-ruleset`"),`n"
           Set-Content src/cmdline_params_ids.h $ids
+        }
+        $input_c = Get-Content src/cl_input.c -Raw
+        if ($input_c -notmatch 'IN_SafeSwitch') {
+          Add-Content src/cl_input.c "`nvoid IN_SafeSwitch(void) { }"
         }
 
     - name: Add vcpkg baseline to vcpkg.json
