@@ -23,11 +23,11 @@ jobs:
           libcurl4-openssl-dev libexpat1-dev libfreetype-dev libfuse3-dev \
           libjansson-dev libjpeg-dev libminizip-dev libpcre2-dev libpng-dev \
           libsdl2-2.0-0 libsdl2-dev libsndfile1-dev libspeex-dev \
-          libspeexdsp-dev ninja-build unzip sed fuse3 imagemagick ccache
+          libspeexdsp-dev ninja-build unzip sed fuse3 imagemagick
         git config --global --add safe.directory $PWD
 
     - name: Check out code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
@@ -36,55 +36,19 @@ jobs:
 
     - name: Apply compatibility patches
       run: |
-        # Fix impulse_pred
         sed -i 's/pmove\.cmd\.impulse_pred/pmove.cmd.impulse/g' src/pmove.c
-
-        # Fix missing client_ruleset cmdline param
         grep -q 'client_ruleset' src/cmdline_params_ids.h || \
           sed -i '/client_noscripts/a CMDLINE_DEF(client_ruleset, "-ruleset"),' src/cmdline_params_ids.h
-
-        # Fix missing IN_SafeSwitch
-        grep -q 'void IN_SafeSwitch' src/cl_input.c || \
-          echo 'void IN_SafeSwitch(void) { }' >> src/cl_input.c
-
-        # Remove all spray references (functions, variables, includes) from source
-        find src -type f \( -name "*.c" -o -name "*.h" \) | while read -r f; do
-          if grep -qiE "spray|CL_Sprays|cl_spray_" "$f"; then
-            echo "  Stripping spray references from: $f"
-            sed -i -E \
-              -e '/[Cc][Ll]_[Ss]pray/d' \
-              -e '/cl_sprays\.h/d' \
-              "$f"
-          fi
-        done
-
-        # Remove cl_sprays from CMakeLists
-        sed -i '/cl_sprays/d' CMakeLists.txt
-
-        # Delete spray files if they exist
-        rm -f src/cl_sprays.c src/cl_sprays.h
 
     - name: Fetch upstream tags
       run: |
         git remote add upstream https://github.com/QW-Group/ezquake-source.git || true
         git fetch --tags --no-recurse-submodules upstream || true
 
-    - name: Cache ccache
-      uses: actions/cache@v5
-      with:
-        path: ~/.ccache
-        key: linux-ccache-${{ github.ref }}-${{ github.sha }}
-        restore-keys: |
-          linux-ccache-${{ github.ref }}-
-          linux-ccache-
-
     - name: Configure
       run: cmake --preset dynamic
       env:
         CFLAGS: "-march=nehalem"
-        CMAKE_C_COMPILER_LAUNCHER: ccache
-        CCACHE_DIR: ~/.ccache
-        CCACHE_MAXSIZE: "500M"
 
     - name: Build
       run: cmake --build build-dynamic --config Release
@@ -92,31 +56,19 @@ jobs:
     - name: Generate AppImage
       run: |
         export EXECUTABLE=$(find build-dynamic -name "ezquake*" -type f | head -1)
-
-        # Ensure icon exists - create a fallback if missing
-        ICON_DIR="dist/linux"
-        ICON_PATH="$ICON_DIR/io.github.ezQuake.128.png"
+        ICON_PATH="dist/linux/io.github.ezQuake.128.png"
         if [ ! -f "$ICON_PATH" ]; then
-          echo "Icon not found, creating fallback..."
-          mkdir -p "$ICON_DIR"
-          FOUND_ICON=$(find . -name "*.png" -path "*/dist/*" | head -1)
-          if [ -n "$FOUND_ICON" ]; then
-            convert "$FOUND_ICON" -resize 128x128 "$ICON_PATH" 2>/dev/null || cp "$FOUND_ICON" "$ICON_PATH"
-          else
-            convert -size 128x128 xc:#336699 -fill white -gravity center \
-              -pointsize 20 -annotate 0 "ezQuake" "$ICON_PATH" 2>/dev/null || true
-          fi
-          if [ ! -f "$ICON_PATH" ]; then
-            curl -fsSL "https://raw.githubusercontent.com/QW-Group/ezquake-source/master/dist/linux/io.github.ezQuake.128.png" \
-              -o "$ICON_PATH" 2>/dev/null || true
-          fi
+          mkdir -p dist/linux
+          curl -fsSL "https://raw.githubusercontent.com/QW-Group/ezquake-source/master/dist/linux/io.github.ezQuake.128.png" \
+            -o "$ICON_PATH" 2>/dev/null || \
+          convert -size 128x128 xc:#1a3a6a -fill white -gravity center \
+            -pointsize 18 -annotate 0 "ezQuake" "$ICON_PATH" 2>/dev/null || true
         fi
-
         ./misc/appimage/appimage-manual_creation.sh
         mv ezQuake-x86_64.AppImage build-dynamic/Release/
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v4
       with:
         name: ezQuake-linux-x86_64
         path: build-dynamic/Release/ezQuake-x86_64.AppImage
@@ -128,7 +80,7 @@ jobs:
 
     steps:
     - name: Check out code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
@@ -146,36 +98,11 @@ jobs:
       shell: pwsh
       run: |
         (Get-Content src/pmove.c) -replace 'pmove\.cmd\.impulse_pred','pmove.cmd.impulse' | Set-Content src/pmove.c
-
         $ids = Get-Content src/cmdline_params_ids.h -Raw
         if ($ids -notmatch 'client_ruleset') {
           $ids = $ids -replace '(client_noscripts[^\n]*\n)', "`$1CMDLINE_DEF(client_ruleset, `"-ruleset`"),`n"
           Set-Content src/cmdline_params_ids.h $ids
         }
-
-        $inputc = Get-Content src/cl_input.c -Raw
-        if ($inputc -notmatch 'void IN_SafeSwitch') {
-          Add-Content src/cl_input.c "`nvoid IN_SafeSwitch(void) { }"
-        }
-
-        # Remove all spray references (functions, variables, includes) from source
-        Get-ChildItem src -Recurse -Include *.c,*.h | ForEach-Object {
-          $txt = Get-Content $_.FullName -Raw
-          if ($txt -imatch 'spray|CL_Sprays|cl_spray_') {
-            Write-Host "  Stripping spray references from: $($_.Name)"
-            $lines = $txt -split "`n" | Where-Object {
-              $_ -notmatch '(?i)(CL_Sprays|cl_spray_)' -and $_ -notmatch 'cl_sprays\.h'
-            }
-            ($lines -join "`n") | Set-Content $_.FullName
-          }
-        }
-
-        # Remove cl_sprays from CMakeLists
-        (Get-Content CMakeLists.txt) | Where-Object { $_ -notmatch 'cl_sprays' } | Set-Content CMakeLists.txt
-
-        # Delete spray files if they exist
-        Remove-Item src/cl_sprays.c -ErrorAction SilentlyContinue
-        Remove-Item src/cl_sprays.h -ErrorAction SilentlyContinue
 
     - name: Add vcpkg baseline to vcpkg.json
       shell: pwsh
@@ -203,59 +130,19 @@ jobs:
       with:
         cmakeVersion: "~3.28.0"
 
-    - name: Cache vcpkg packages
-      uses: actions/cache@v5
-      with:
-        path: |
-          ${{ github.workspace }}/vcpkg/installed
-          ${{ github.workspace }}/vcpkg/packages
-          ${{ github.workspace }}/vcpkg/buildtrees
-          ~/.cache/vcpkg
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ hashFiles('vcpkg/baseline.json') }}
-        restore-keys: |
-          vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-
-          vcpkg-${{ runner.os }}-
-
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
 
-    - name: Configure
-      shell: pwsh
-      run: |
-        cmake --preset msbuild-x64
-      env:
-        VCPKG_ROOT: ${{ github.workspace }}\vcpkg
-
-    - name: Fix ezQuake.rc version strings
-      shell: pwsh
-      run: |
-        # RC2104: the .rc is generated at configure time with a raw git hash.
-        # We patch it after configure, before build.
-        Get-ChildItem -Recurse -Filter "*.rc" | ForEach-Object {
-          $txt = Get-Content $_.FullName -Raw
-          # Quote any bare hex strings (git hashes) that are not already quoted
-          $patched = $txt -replace '(?m)^(.*\s)([0-9a-fA-F]{7,40})(\s*(?:$|\r))', '$1"$2"$3'
-          if ($patched -ne $txt) {
-            Set-Content $_.FullName $patched
-            Write-Host "Patched RC: $($_.FullName)"
-          } else {
-            Write-Host "No changes needed: $($_.FullName)"
-          }
-        }
-        # Show line 6 of the rc file for debug
-        Get-ChildItem -Recurse -Filter "*.rc" | ForEach-Object {
-          Write-Host "--- $($_.FullName) (first 10 lines) ---"
-          Get-Content $_.FullName | Select-Object -First 10
-        }
-
-    - name: Build
-      shell: pwsh
-      run: cmake --build build-msbuild-x64 --config Release
+    - name: Configure and Build
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: msbuild-x64
+        buildPreset: msbuild-x64-release
       env:
         VCPKG_ROOT: ${{ github.workspace }}\vcpkg
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v4
       with:
         name: ezQuake-windows-x64
         path: build-msbuild-x64/Release/ezquake.exe
