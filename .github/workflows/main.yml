@@ -23,11 +23,11 @@ jobs:
           libcurl4-openssl-dev libexpat1-dev libfreetype-dev libfuse3-dev \
           libjansson-dev libjpeg-dev libminizip-dev libpcre2-dev libpng-dev \
           libsdl2-2.0-0 libsdl2-dev libsndfile1-dev libspeex-dev \
-          libspeexdsp-dev ninja-build unzip sed fuse3 imagemagick
+          libspeexdsp-dev ninja-build unzip sed fuse3 imagemagick ccache
         git config --global --add safe.directory $PWD
 
     - name: Check out code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -170,7 +170,7 @@ jobs:
         mv ezQuake-x86_64.AppImage build-dynamic/Release/
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ezQuake-linux-x86_64
         path: build-dynamic/Release/ezQuake-x86_64.AppImage
@@ -182,7 +182,7 @@ jobs:
 
     steps:
     - name: Check out code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
@@ -271,8 +271,35 @@ jobs:
       with:
         cmakeVersion: "~3.28.0"
 
+    - name: Cache vcpkg packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/vcpkg/installed
+          ${{ github.workspace }}/vcpkg/packages
+          ${{ github.workspace }}/vcpkg/buildtrees
+          ~/.cache/vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-${{ hashFiles('vcpkg/baseline.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}-
+          vcpkg-${{ runner.os }}-
+
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
+
+    - name: Fix ezQuake.rc version strings
+      shell: pwsh
+      run: |
+        # RC2104 happens when git hash macros are not quoted strings in the .rc file.
+        # Find the .rc file and ensure any bare hex-looking defines are quoted.
+        $rcFiles = Get-ChildItem -Recurse -Filter "ezQuake.rc" | Select-Object -ExpandProperty FullName
+        foreach ($rc in $rcFiles) {
+          $content = Get-Content $rc -Raw
+          # Quote any unquoted define values that look like git hashes (hex strings 7-40 chars)
+          $content = $content -replace '(#define\s+\w+\s+)([0-9a-fA-F]{7,40})(\s)', '$1"$2"$3'
+          Set-Content $rc $content
+          Write-Host "Patched: $rc"
+        }
 
     - name: Configure and Build
       uses: lukka/run-cmake@v10
@@ -283,7 +310,7 @@ jobs:
         VCPKG_ROOT: ${{ github.workspace }}\vcpkg
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ezQuake-windows-x64
         path: build-msbuild-x64/Release/ezquake.exe
