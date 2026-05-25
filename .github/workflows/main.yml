@@ -92,6 +92,7 @@ jobs:
         CFLAGS: "-march=nehalem"
 
     - name: Build (with auto-stub for undefined references)
+      shell: bash
       run: |
         MAX_RETRIES=10
         attempt=0
@@ -110,8 +111,8 @@ jobs:
             break
           fi
 
-          # Extract all undefined reference symbols
-          MISSING=$(echo "$BUILD_LOG" | grep -oP "undefined reference to \`\K[^']+" | sort -u)
+          # Extract all undefined reference symbols (POSIX-compatible grep)
+          MISSING=$(echo "$BUILD_LOG"             | grep "undefined reference to"             | sed "s/.*undefined reference to .\([^']*\)'.*/\1/"             | sort -u)
 
           if [ -z "$MISSING" ]; then
             echo "=== Build failed with no undefined references - not recoverable ==="
@@ -121,12 +122,12 @@ jobs:
           echo "=== Auto-stubbing missing symbols ==="
           NEW_STUBS=0
           while IFS= read -r sym; do
-            if ! grep -qF "$sym" src/cl_sprays.c 2>/dev/null; then
+            if [ -n "$sym" ] && ! grep -qF "$sym" src/cl_sprays.c 2>/dev/null; then
               echo "  + stubbing: $sym"
               echo "void ${sym}(void) { }" >> src/cl_sprays.c
               NEW_STUBS=$((NEW_STUBS + 1))
             fi
-          done <<< "$MISSING"
+          done < <(echo "$MISSING")
 
           if [ $NEW_STUBS -eq 0 ]; then
             echo "=== No new stubs added - build is not recoverable ==="
