@@ -2837,8 +2837,6 @@ void CL_Frame(double time)
 	CL_UpdateCaption(false);
 
 	TP_AutoShowNick();
-
-	IN_SafeSwitch();
 }
 
 //============================================================================

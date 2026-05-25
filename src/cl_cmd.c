@@ -968,8 +968,6 @@ void CL_InitCommands (void) {
 	Cvar_Register(&cl_sayfilter_coloredtext);
 	Cvar_Register(&cl_sayfilter_sendboth);
 	Cvar_ResetCurrentGroup();
-
-	CL_InitSprays();
 }
 
 /*

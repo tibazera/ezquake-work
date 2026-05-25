@@ -674,6 +674,7 @@ set(client
         ${SOURCE_DIR}/cl_parse.c
         ${SOURCE_DIR}/cl_mouseaccel.c
         ${SOURCE_DIR}/cl_pred.c
+        ${SOURCE_DIR}/cl_sprays.c
         ${SOURCE_DIR}/cl_screen.c
         ${SOURCE_DIR}/cl_screenshot.c
         ${SOURCE_DIR}/cl_skygroups.c

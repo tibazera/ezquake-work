@@ -1418,3 +1418,4 @@ void IN_ResetAutohopState(void)
 {
 	// no-op: autohop not implemented
 }
+

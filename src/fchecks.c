@@ -54,7 +54,9 @@ extern cvar_t cl_nopred;
 
 static void FChecks_VersionResponse (void)
 {
-	Cbuf_AddText (va("say ezQuake %s " QW_PLATFORM ":" QW_RENDERER "\n", VersionString()));
+	// &c0f0 = green for "ezQuake", &cf40 = orange for version number, &c07f = cyan for platform
+	Cbuf_AddText(va("say {&c0f0ez&cf40Quake&r &cf80%s&r &c07f%s:%s&r}\n",
+		VersionString(), QW_PLATFORM, QW_RENDERER));
 }
 
 static char *FChecks_FServerResponse_Text(void)

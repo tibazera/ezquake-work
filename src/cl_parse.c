@@ -4324,6 +4324,7 @@ void CL_ParseServerMessage (void)
 #ifdef MVD_PEXT1_SPRAYS
 			case svc_spray:
 				{
+					MSG_ReadSkip(MSG_GetCurSize() - MSG_GetReadCount());
 					break;
 				}
 #endif // MVD_PEXT1_SPRAYS
@@ -4543,10 +4544,7 @@ void CL_ParseHiddenDataMessage(void)
 		case mvdhidden_spray:
 		{
 			int end = MSG_GetReadCount() + size;
-
-			if (MSG_GetReadCount() < end) {
-				MSG_ReadSkip(end - MSG_GetReadCount());
-			}
+			MSG_ReadSkip(end - MSG_GetReadCount());
 			break;
 		}
 #endif

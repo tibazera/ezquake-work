@@ -1174,7 +1174,6 @@ void CL_ParseProjectiles(qbool indexed);
 void CL_InitPrediction(void);
 void CL_PredictMove(qbool physframe);
 void CL_PredictUsercmd(player_state_t *from, player_state_t *to, usercmd_t *u, int local);
-void CL_InitSprays(void);
 void CL_DisableLerpMove(void);
 
 // cl_cam.c
@@ -1368,7 +1367,6 @@ void Dev_TextureList(void);
 // weapons scripts
 int IN_BestWeapon(qbool rendering_only);
 int IN_BestWeaponReal(qbool rendering_only);
-void IN_SafeSwitch(void);
 
 // hud_common.c
 void CL_RemovePrefixFromName(int player);
