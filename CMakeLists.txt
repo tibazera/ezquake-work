@@ -814,6 +814,10 @@ set(EZQUAKE_RESOURCE_VERSION "${version_major},${version_minor},${version_patch}
 set(EZQUAKE_RESOURCE_COMMIT "${version_commit}")
 configure_file("${PROJECT_SOURCE_DIR}/dist/windows/ezQuake.rc.in" ${windows_icon} @ONLY)
 
+# RC compiler (rc.exe) cannot handle the VERSION define (e.g. "37~d9d7113d")
+# because it interprets hex-like tokens as keywords. Clear defines for the RC file.
+set_source_files_properties(${windows_icon} PROPERTIES COMPILE_DEFINITIONS "")
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     # Mark the executable as a non-console application
     set(TARGET_TYPE WIN32)
