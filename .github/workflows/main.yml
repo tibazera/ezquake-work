@@ -48,28 +48,28 @@ jobs:
           echo 'void IN_SafeSwitch(void) { }' >> src/cl_input.c
 
         # Create stub cl_sprays.c with all required symbols
-        cat > src/cl_sprays.c << 'STUBEOF'
-        #include "quakedef.h"
-        #include "r_sprite3d.h"
-        cvar_t cl_spray_show = {"cl_spray_show", "0.5"};
-        cvar_t cl_spray_colorize = {"cl_spray_colorize", "", CVAR_COLOR};
-        cvar_t cl_spray_image = {"cl_spray_image", "spray"};
-        cvar_t cl_spray_image_path = {"cl_spray_image_path", "qw/sprays"};
-        cvar_t cl_spray_distance = {"cl_spray_distance", "512"};
-        cvar_t cl_spray_size = {"cl_spray_size", "64"};
-        cvar_t cl_spray_preview_alpha = {"cl_spray_preview_alpha", "0.125"};
-        void CL_InitSprays(void) {
-            Cvar_Register(&cl_spray_show);
-            Cvar_Register(&cl_spray_colorize);
-            Cvar_Register(&cl_spray_image);
-            Cvar_Register(&cl_spray_image_path);
-            Cvar_Register(&cl_spray_distance);
-            Cvar_Register(&cl_spray_size);
-            Cvar_Register(&cl_spray_preview_alpha);
-        }
-        void CL_SpraysParseServerMessage(void) { }
-        void CL_SpraysDraw(void) { }
-        STUBEOF
+        printf '%s\n' \
+          '#include "quakedef.h"' \
+          '#include "r_sprite3d.h"' \
+          'cvar_t cl_spray_show = {"cl_spray_show", "0.5"};' \
+          'cvar_t cl_spray_colorize = {"cl_spray_colorize", "", CVAR_COLOR};' \
+          'cvar_t cl_spray_image = {"cl_spray_image", "spray"};' \
+          'cvar_t cl_spray_image_path = {"cl_spray_image_path", "qw/sprays"};' \
+          'cvar_t cl_spray_distance = {"cl_spray_distance", "512"};' \
+          'cvar_t cl_spray_size = {"cl_spray_size", "64"};' \
+          'cvar_t cl_spray_preview_alpha = {"cl_spray_preview_alpha", "0.125"};' \
+          'void CL_InitSprays(void) {' \
+          '    Cvar_Register(&cl_spray_show);' \
+          '    Cvar_Register(&cl_spray_colorize);' \
+          '    Cvar_Register(&cl_spray_image);' \
+          '    Cvar_Register(&cl_spray_image_path);' \
+          '    Cvar_Register(&cl_spray_distance);' \
+          '    Cvar_Register(&cl_spray_size);' \
+          '    Cvar_Register(&cl_spray_preview_alpha);' \
+          '}' \
+          'void CL_SpraysParseServerMessage(void) { }' \
+          'void CL_SpraysDraw(void) { }' \
+          > src/cl_sprays.c
 
         # Add cl_sprays.c to CMakeLists if not already there
         grep -q 'cl_sprays.c' CMakeLists.txt || \
