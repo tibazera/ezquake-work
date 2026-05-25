@@ -4321,13 +4321,6 @@ void CL_ParseServerMessage (void)
 					CL_ParseProjectiles(true);
 					break;
 				}
-#ifdef MVD_PEXT1_SPRAYS
-			case svc_spray:
-				{
-					MSG_ReadSkip(MSG_GetCurSize() - MSG_GetReadCount());
-					break;
-				}
-#endif // MVD_PEXT1_SPRAYS
 			case svc_chokecount: // Some preceding packets were choked
 				{
 					i = MSG_ReadByte();
@@ -4540,14 +4533,7 @@ void CL_ParseHiddenDataMessage(void)
 		case mvdhidden_usercmd_weapon_instruction:
 			CL_ParseDemoWeaponInstruction(size);
 			break;
-#ifdef MVD_PEXT1_SPRAYS
-		case mvdhidden_spray:
-		{
-			int end = MSG_GetReadCount() + size;
-			MSG_ReadSkip(end - MSG_GetReadCount());
-			break;
-		}
-#endif
+
 		default:
 			MSG_ReadSkip(size);
 			break;
