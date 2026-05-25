@@ -54,8 +54,8 @@ extern cvar_t cl_nopred;
 
 static void FChecks_VersionResponse (void)
 {
-	// &c0f0 = green for "ezQuake", &cf40 = orange for version number, &c07f = cyan for platform
-	Cbuf_AddText(va("say {&c0f0ez&cf40Quake&r &cf80%s&r &c07f%s:%s&r}\n",
+	// ezQuake in ice white (&ccef), version in cyan (&c0ff), platform in gray (&c888)
+	Cbuf_AddText(va("say &ccefezQuake&r &c0ff%s&r &c888%s:%s&r\n",
 		VersionString(), QW_PLATFORM, QW_RENDERER));
 }
 
@@ -340,11 +340,7 @@ static qbool FChecks_SystemRequest (const char *s)
 
 		sys_string = (allow_f_system.integer) ? SYSINFO_GetString() : "disabled";
 
-		//if (sys_string != NULL && sys_string[0]) {
-		Cbuf_AddText("say ");
-		Cbuf_AddText(sys_string);
-		Cbuf_AddText("\n");
-		//}
+		Cbuf_AddText(va("say %s\n", sys_string));
 
 		f_system_reply_time = cls.realtime;
 		return true;
