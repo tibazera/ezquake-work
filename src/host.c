@@ -66,11 +66,29 @@ extern void COM_StoreOriginalCmdline(int argc, char **argv);
 
 char f_system_string[1024] = "";
 
+unsigned long long	SYSINFO_memory = 0;
+int				SYSINFO_MHz = 0;
+char			*SYSINFO_processor_description = NULL;
+char			*SYSINFO_3D_description        = NULL;
+
 static char f_system_string_colored[512];
 
-// Returns colorized version of f_system_string:
-// CPU: Intel = blue (&c06f), AMD = red (&cf00)
-// GPU: NVIDIA = green (&c0f0), AMD/Radeon = red (&cf00), Intel = blue (&c06f)
+static int SYSINFO_ContainsStr(const char *haystack, const char *needle)
+{
+	char h[256], n[64];
+	int i;
+	for (i = 0; haystack[i] && i < (int)sizeof(h)-1; i++)
+		h[i] = (haystack[i] >= 'A' && haystack[i] <= 'Z') ? haystack[i]+32 : haystack[i];
+	h[i] = '\0';
+	for (i = 0; needle[i] && i < (int)sizeof(n)-1; i++)
+		n[i] = (needle[i] >= 'A' && needle[i] <= 'Z') ? needle[i]+32 : needle[i];
+	n[i] = '\0';
+	return strstr(h, n) != NULL;
+}
+
+// Returns colorized f_system string.
+// CPU: Intel=blue(&c06f) AMD/Ryzen=red(&cf00)
+// GPU: NVIDIA/GeForce/RTX/GTX=green(&c0f0) AMD/Radeon=red(&cf00) Intel=blue(&c06f)
 char * SYSINFO_GetString(void)
 {
 	char cpu_colored[256] = {0};
@@ -79,29 +97,28 @@ char * SYSINFO_GetString(void)
 	const char *cpu = SYSINFO_processor_description ? SYSINFO_processor_description : "";
 	const char *gpu = SYSINFO_3D_description ? SYSINFO_3D_description : "";
 
-	// Colorize CPU
 	if (cpu[0]) {
-		if (Q_strcasestr(cpu, "Intel"))
+		if (SYSINFO_ContainsStr(cpu, "Intel"))
 			snprintf(cpu_colored, sizeof(cpu_colored), "&c06f%s&r", cpu);
-		else if (Q_strcasestr(cpu, "AMD") || Q_strcasestr(cpu, "Ryzen"))
+		else if (SYSINFO_ContainsStr(cpu, "AMD") || SYSINFO_ContainsStr(cpu, "Ryzen"))
 			snprintf(cpu_colored, sizeof(cpu_colored), "&cf00%s&r", cpu);
 		else
 			strlcpy(cpu_colored, cpu, sizeof(cpu_colored));
 	}
 
-	// Colorize GPU
 	if (gpu[0]) {
-		if (Q_strcasestr(gpu, "NVIDIA") || Q_strcasestr(gpu, "GeForce") || Q_strcasestr(gpu, "RTX") || Q_strcasestr(gpu, "GTX"))
+		if (SYSINFO_ContainsStr(gpu, "NVIDIA") || SYSINFO_ContainsStr(gpu, "GeForce") ||
+		    SYSINFO_ContainsStr(gpu, "RTX") || SYSINFO_ContainsStr(gpu, "GTX"))
 			snprintf(gpu_colored, sizeof(gpu_colored), "&c0f0%s&r", gpu);
-		else if (Q_strcasestr(gpu, "AMD") || Q_strcasestr(gpu, "Radeon") || Q_strcasestr(gpu, "RX "))
+		else if (SYSINFO_ContainsStr(gpu, "AMD") || SYSINFO_ContainsStr(gpu, "Radeon") ||
+		         SYSINFO_ContainsStr(gpu, "RX "))
 			snprintf(gpu_colored, sizeof(gpu_colored), "&cf00%s&r", gpu);
-		else if (Q_strcasestr(gpu, "Intel"))
+		else if (SYSINFO_ContainsStr(gpu, "Intel"))
 			snprintf(gpu_colored, sizeof(gpu_colored), "&c06f%s&r", gpu);
 		else
 			strlcpy(gpu_colored, gpu, sizeof(gpu_colored));
 	}
 
-	// Extract memory part from f_system_string (always first token before comma)
 	{
 		char tmp[sizeof(f_system_string)];
 		char *comma;
@@ -111,7 +128,6 @@ char * SYSINFO_GetString(void)
 		strlcpy(mem_part, tmp, sizeof(mem_part));
 	}
 
-	// Build colored string
 	f_system_string_colored[0] = '\0';
 	strlcat(f_system_string_colored, mem_part, sizeof(f_system_string_colored));
 	if (cpu_colored[0]) {
@@ -125,17 +141,12 @@ char * SYSINFO_GetString(void)
 		strlcat(f_system_string_colored, gpu_colored, sizeof(f_system_string_colored));
 	}
 
-	// Fallback to plain string if something went wrong
 	if (!f_system_string_colored[0])
 		return f_system_string;
 
 	return f_system_string_colored;
 }
 
-unsigned long long	SYSINFO_memory = 0;
-int					SYSINFO_MHz = 0;
-char				*SYSINFO_processor_description = NULL;
-char				*SYSINFO_3D_description        = NULL;
 
 static void SYSINFO_Shutdown(void)
 {
