@@ -6,8 +6,6 @@ on:
       - '**'
   pull_request:
   workflow_dispatch:
-  release:
-    types: [published]
 
 jobs:
   build:
@@ -19,7 +17,6 @@ jobs:
             buildPreset: msbuild-x64-release
             name: ezQuake-windows-x64
             artifact: "ezquake.exe"
-            container: null
           - os: ubuntu-latest
             configurePreset: dynamic
             buildPreset: dynamic-release
@@ -45,54 +42,25 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
       with:
-        submodules: true
         fetch-depth: 0
+
+    - name: Initialize submodules
+      run: |
+        git submodule add https://github.com/Microsoft/vcpkg vcpkg || true
+        git submodule add https://github.com/QW-Group/qwprot src/qwprot || true
+        git submodule update --init --recursive
 
     - name: Fetch upstream tags for version metadata
       run: |
-          git remote add upstream https://github.com/QW-Group/ezquake-source.git
-          git fetch --tags --no-recurse-submodules upstream
-      if: github.repository != 'QW-Group/ezquake-source'
+        git remote add upstream https://github.com/QW-Group/ezquake-source.git || true
+        git fetch --tags --no-recurse-submodules upstream
 
     - name: Set library build type to release
       shell: bash
       run: |
-        for x in {cmake/triplets/*,vcpkg/triplets/{*,community/*}}; do
+        for x in cmake/triplets/* vcpkg/triplets/* vcpkg/triplets/community/*; do
           if [[ -f $x ]]; then
-            echo >> $x
             echo 'set(VCPKG_BUILD_TYPE release)' >> $x
           fi
         done
-      if: matrix.os != 'ubuntu-latest'
-
-    - uses: lukka/get-cmake@latest
-      with:
-        cmakeVersion: "~3.28.0"
-      if: matrix.os != 'ubuntu-latest'
-
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
-      if: matrix.os != 'ubuntu-latest'
-
-    - name: Run CMake
-      uses: lukka/run-cmake@v10
-      with:
-        configurePreset: ${{ matrix.configurePreset }}
-        buildPreset: ${{ matrix.buildPreset }}
-      env:
-        CFLAGS: ${{ matrix.cflags }}
-
-    - name: Generate Linux AppImage
-      run: |
-        export EXECUTABLE=$(echo build-${{ matrix.configurePreset }}/Release/ezquake*)
-        ./misc/appimage/appimage-manual_creation.sh
-        mv ezQuake-x86_64.AppImage build-${{ matrix.configurePreset }}/Release/
-      if: matrix.os == 'ubuntu-latest'
-
-    - name: Archive client
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.name }}
-        path: |
-          build-${{ matrix.configurePreset }}/Release/${{ matrix.artifact }}
-        compression-level: 9
+      if: matrix.os != 'ubuntu-late
