@@ -36,11 +36,44 @@ jobs:
 
     - name: Apply compatibility patches
       run: |
+        # Fix impulse_pred
         sed -i 's/pmove\.cmd\.impulse_pred/pmove.cmd.impulse/g' src/pmove.c
+
+        # Fix missing client_ruleset cmdline param
         grep -q 'client_ruleset' src/cmdline_params_ids.h || \
           sed -i '/client_noscripts/a CMDLINE_DEF(client_ruleset, "-ruleset"),' src/cmdline_params_ids.h
-        grep -q 'IN_SafeSwitch' src/cl_input.c || \
+
+        # Fix missing IN_SafeSwitch
+        grep -q 'void IN_SafeSwitch' src/cl_input.c || \
           echo 'void IN_SafeSwitch(void) { }' >> src/cl_input.c
+
+        # Create stub cl_sprays.c with all required symbols
+        cat > src/cl_sprays.c << 'STUBEOF'
+        #include "quakedef.h"
+        #include "r_sprite3d.h"
+        cvar_t cl_spray_show = {"cl_spray_show", "0.5"};
+        cvar_t cl_spray_colorize = {"cl_spray_colorize", "", CVAR_COLOR};
+        cvar_t cl_spray_image = {"cl_spray_image", "spray"};
+        cvar_t cl_spray_image_path = {"cl_spray_image_path", "qw/sprays"};
+        cvar_t cl_spray_distance = {"cl_spray_distance", "512"};
+        cvar_t cl_spray_size = {"cl_spray_size", "64"};
+        cvar_t cl_spray_preview_alpha = {"cl_spray_preview_alpha", "0.125"};
+        void CL_InitSprays(void) {
+            Cvar_Register(&cl_spray_show);
+            Cvar_Register(&cl_spray_colorize);
+            Cvar_Register(&cl_spray_image);
+            Cvar_Register(&cl_spray_image_path);
+            Cvar_Register(&cl_spray_distance);
+            Cvar_Register(&cl_spray_size);
+            Cvar_Register(&cl_spray_preview_alpha);
+        }
+        void CL_SpraysParseServerMessage(void) { }
+        void CL_SpraysDraw(void) { }
+        STUBEOF
+
+        # Add cl_sprays.c to CMakeLists if not already there
+        grep -q 'cl_sprays.c' CMakeLists.txt || \
+          sed -i 's|${SOURCE_DIR}/cl_pred.c|${SOURCE_DIR}/cl_pred.c\n        ${SOURCE_DIR}/cl_sprays.c|' CMakeLists.txt
 
     - name: Fetch upstream tags
       run: |
@@ -91,15 +124,47 @@ jobs:
     - name: Apply compatibility patches
       shell: pwsh
       run: |
-        (Get-Content src/pmove.c) -replace 'pmove\.cmd\.impulse_pred', 'pmove.cmd.impulse' | Set-Content src/pmove.c
+        (Get-Content src/pmove.c) -replace 'pmove\.cmd\.impulse_pred','pmove.cmd.impulse' | Set-Content src/pmove.c
+
         $ids = Get-Content src/cmdline_params_ids.h -Raw
         if ($ids -notmatch 'client_ruleset') {
-          $ids = $ids -replace '(client_noscripts.*\n)', "`$1CMDLINE_DEF(client_ruleset, `"-ruleset`"),`n"
+          $ids = $ids -replace '(client_noscripts[^\n]*\n)', "`$1CMDLINE_DEF(client_ruleset, `"-ruleset`"),`n"
           Set-Content src/cmdline_params_ids.h $ids
         }
-        $input_c = Get-Content src/cl_input.c -Raw
-        if ($input_c -notmatch 'IN_SafeSwitch') {
+
+        $inputc = Get-Content src/cl_input.c -Raw
+        if ($inputc -notmatch 'void IN_SafeSwitch') {
           Add-Content src/cl_input.c "`nvoid IN_SafeSwitch(void) { }"
+        }
+
+        $stub = @'
+#include "quakedef.h"
+#include "r_sprite3d.h"
+cvar_t cl_spray_show = {"cl_spray_show", "0.5"};
+cvar_t cl_spray_colorize = {"cl_spray_colorize", "", CVAR_COLOR};
+cvar_t cl_spray_image = {"cl_spray_image", "spray"};
+cvar_t cl_spray_image_path = {"cl_spray_image_path", "qw/sprays"};
+cvar_t cl_spray_distance = {"cl_spray_distance", "512"};
+cvar_t cl_spray_size = {"cl_spray_size", "64"};
+cvar_t cl_spray_preview_alpha = {"cl_spray_preview_alpha", "0.125"};
+void CL_InitSprays(void) {
+    Cvar_Register(&cl_spray_show);
+    Cvar_Register(&cl_spray_colorize);
+    Cvar_Register(&cl_spray_image);
+    Cvar_Register(&cl_spray_image_path);
+    Cvar_Register(&cl_spray_distance);
+    Cvar_Register(&cl_spray_size);
+    Cvar_Register(&cl_spray_preview_alpha);
+}
+void CL_SpraysParseServerMessage(void) { }
+void CL_SpraysDraw(void) { }
+'@
+        Set-Content src/cl_sprays.c $stub
+
+        $cmake = Get-Content CMakeLists.txt -Raw
+        if ($cmake -notmatch 'cl_sprays\.c') {
+          $cmake = $cmake -replace '\$\{SOURCE_DIR\}/cl_pred\.c', "`${SOURCE_DIR}/cl_pred.c`n        `${SOURCE_DIR}/cl_sprays.c"
+          Set-Content CMakeLists.txt $cmake
         }
 
     - name: Add vcpkg baseline to vcpkg.json
