@@ -1,10 +1,10 @@
-name: Extract and Setup
+name: Replace with new zip
 
 on:
   workflow_dispatch:
 
 jobs:
-  extract:
+  replace:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -13,18 +13,23 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Extract zip
+    - name: Download new zip
       run: |
-        unzip ezquake-merged.zip
-        rm ezquake-merged.zip
+        curl -L "https://github.com/tibazera/ezquake-merged/raw/main/ezquake-merged.zip" -o new.zip
+
+    - name: Replace all files
+      run: |
+        find . -not -path './.git/*' -not -name '.git' -not -path './.github/*' -delete
+        unzip -q new.zip
         mv ezquake-merged/* .
         mv ezquake-merged/.* . 2>/dev/null || true
         rmdir ezquake-merged
+        rm new.zip
 
-    - name: Commit extracted files
+    - name: Commit
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add -A
-        git commit -m "Extract source files from zip"
+        git commit -m "Replace with updated source"
         git push
