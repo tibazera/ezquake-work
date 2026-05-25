@@ -23,7 +23,7 @@ jobs:
           libcurl4-openssl-dev libexpat1-dev libfreetype-dev libfuse3-dev \
           libjansson-dev libjpeg-dev libminizip-dev libpcre2-dev libpng-dev \
           libsdl2-2.0-0 libsdl2-dev libsndfile1-dev libspeex-dev \
-          libspeexdsp-dev ninja-build unzip sed
+          libspeexdsp-dev ninja-build unzip sed fuse3 libfuse3-3 imagemagick
         git config --global --add safe.directory $PWD
 
     - name: Check out code
@@ -145,6 +145,27 @@ jobs:
     - name: Generate AppImage
       run: |
         export EXECUTABLE=$(find build-dynamic -name "ezquake*" -type f | head -1)
+
+        # Ensure icon exists - create a fallback if missing
+        ICON_DIR="dist/linux"
+        ICON_PATH="$ICON_DIR/io.github.ezQuake.128.png"
+        if [ ! -f "$ICON_PATH" ]; then
+          echo "Icon not found at $ICON_PATH, creating fallback..."
+          mkdir -p "$ICON_DIR"
+          # Try to copy any existing icon from the repo
+          FOUND_ICON=$(find . -name "*.png" -path "*/dist/*" | head -1)
+          if [ -n "$FOUND_ICON" ]; then
+            convert "$FOUND_ICON" -resize 128x128 "$ICON_PATH" 2>/dev/null || cp "$FOUND_ICON" "$ICON_PATH"
+          else
+            # Generate a minimal 128x128 placeholder PNG via ImageMagick
+            convert -size 128x128 xc:#336699 -fill white -gravity center               -pointsize 20 -annotate 0 "ezQuake" "$ICON_PATH" 2>/dev/null || true
+          fi
+          # Last resort: download from upstream repo
+          if [ ! -f "$ICON_PATH" ]; then
+            curl -fsSL "https://raw.githubusercontent.com/QW-Group/ezquake-source/master/dist/linux/io.github.ezQuake.128.png"               -o "$ICON_PATH" 2>/dev/null || true
+          fi
+        fi
+
         ./misc/appimage/appimage-manual_creation.sh
         mv ezQuake-x86_64.AppImage build-dynamic/Release/
 
