@@ -133,13 +133,17 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
 
-    - name: Configure and Build
-      uses: lukka/run-cmake@v10
-      with:
-        configurePreset: msbuild-x64
-        buildPreset: msbuild-x64-release
+    - name: Configure
+      shell: pwsh
+      run: cmake --preset msbuild-x64
       env:
         VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+
+    - name: Build
+      shell: pwsh
+      run: |
+        cmake --build build-msbuild-x64 --config Release 2>&1
+        exit $LASTEXITCODE
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
