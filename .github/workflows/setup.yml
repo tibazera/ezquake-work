@@ -2,6 +2,11 @@ name: Replace with new zip
 
 on:
   workflow_dispatch:
+    inputs:
+      zip_url:
+        description: 'URL do zip (deixe vazio para usar o zip do repositório)'
+        required: false
+        default: ''
 
 jobs:
   replace:
@@ -13,18 +18,21 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Download new zip
-      run: |
-        curl -L "https://github.com/tibazera/ezquake-merged/raw/main/ezquake-merged.zip" -o new.zip
-
     - name: Replace all files
       run: |
-        find . -not -path './.git/*' -not -name '.git' -not -path './.github/*' -delete
-        unzip -q new.zip
-        mv ezquake-merged/* .
-        mv ezquake-merged/.* . 2>/dev/null || true
-        rmdir ezquake-merged
-        rm new.zip
+        # Remove everything except .git folder and the zip itself
+        find . -mindepth 1 -maxdepth 1 \
+          ! -name '.git' \
+          ! -name 'ezquake-merged.zip' \
+          -exec rm -rf {} +
+
+        # Extract zip
+        unzip -q ezquake-merged.zip
+
+        # Move contents up
+        cp -r ezquake-merged/. .
+        rm -rf ezquake-merged
+        rm -f ezquake-merged.zip
 
     - name: Commit
       run: |
