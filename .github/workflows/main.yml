@@ -219,23 +219,38 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
 
+    - name: Configure
+      shell: pwsh
+      run: |
+        cmake --preset msbuild-x64
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+
     - name: Fix ezQuake.rc version strings
       shell: pwsh
       run: |
-        # RC2104: git hash macros must be quoted strings in .rc files
+        # RC2104: the .rc is generated at configure time with a raw git hash.
+        # We patch it after configure, before build.
         Get-ChildItem -Recurse -Filter "*.rc" | ForEach-Object {
-          $content = Get-Content $_.FullName -Raw
-          # Quote any unquoted define values that look like git hashes (7-40 hex chars)
-          $content = $content -replace '(#define\s+\w+\s+)([0-9a-fA-F]{7,40})(\s|$)', '$1"$2"$3'
-          Set-Content $_.FullName $content
-          Write-Host "Patched RC: $($_.FullName)"
+          $txt = Get-Content $_.FullName -Raw
+          # Quote any bare hex strings (git hashes) that are not already quoted
+          $patched = $txt -replace '(?m)^(.*\s)([0-9a-fA-F]{7,40})(\s*(?:$|\r))', '$1"$2"$3'
+          if ($patched -ne $txt) {
+            Set-Content $_.FullName $patched
+            Write-Host "Patched RC: $($_.FullName)"
+          } else {
+            Write-Host "No changes needed: $($_.FullName)"
+          }
+        }
+        # Show line 6 of the rc file for debug
+        Get-ChildItem -Recurse -Filter "*.rc" | ForEach-Object {
+          Write-Host "--- $($_.FullName) (first 10 lines) ---"
+          Get-Content $_.FullName | Select-Object -First 10
         }
 
-    - name: Configure and Build
-      uses: lukka/run-cmake@v10
-      with:
-        configurePreset: msbuild-x64
-        buildPreset: msbuild-x64-release
+    - name: Build
+      shell: pwsh
+      run: cmake --build build-msbuild-x64 --config Release
       env:
         VCPKG_ROOT: ${{ github.workspace }}\vcpkg
 
