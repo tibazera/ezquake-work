@@ -1346,7 +1346,6 @@ void CL_Disconnect (void)
 
 	//
 	R_OnDisconnect();
-	CL_SpraysDisconnect();
 
 	if (cls.demorecording && cls.state != ca_disconnected) {
 		CL_Stop_f();
