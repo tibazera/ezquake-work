@@ -23,7 +23,7 @@ jobs:
           libcurl4-openssl-dev libexpat1-dev libfreetype-dev libfuse3-dev \
           libjansson-dev libjpeg-dev libminizip-dev libpcre2-dev libpng-dev \
           libsdl2-2.0-0 libsdl2-dev libsndfile1-dev libspeex-dev \
-          libspeexdsp-dev ninja-build unzip sed fuse3 libfuse3-3 imagemagick
+          libspeexdsp-dev ninja-build unzip sed fuse3 imagemagick
         git config --global --add safe.directory $PWD
 
     - name: Check out code
