@@ -1,0 +1,30 @@
+name: Extract and Setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Extract zip
+      run: |
+        unzip ezquake-merged.zip
+        rm ezquake-merged.zip
+        mv ezquake-merged/* .
+        mv ezquake-merged/.* . 2>/dev/null || true
+        rmdir ezquake-merged
+
+    - name: Commit extracted files
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add -A
+        git commit -m "Extract source files from zip"
+        git push
