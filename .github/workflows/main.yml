@@ -34,9 +34,11 @@ jobs:
     - name: Clone qwprot (QW-Community fork)
       run: git clone https://github.com/QW-Community/qwprot.git src/qwprot
 
-    - name: Fix impulse_pred (not in official qwprot protocol.h)
+    - name: Apply compatibility patches
       run: |
         sed -i 's/pmove\.cmd\.impulse_pred/pmove.cmd.impulse/g' src/pmove.c
+        grep -q 'client_ruleset' src/cmdline_params_ids.h || \
+          sed -i '/client_noscripts/a CMDLINE_DEF(client_ruleset, "-ruleset"),' src/cmdline_params_ids.h
 
     - name: Fetch upstream tags
       run: |
@@ -84,10 +86,15 @@ jobs:
       shell: pwsh
       run: git clone https://github.com/QW-Community/qwprot.git src/qwprot
 
-    - name: Fix impulse_pred (not in official qwprot protocol.h)
+    - name: Apply compatibility patches
       shell: pwsh
       run: |
         (Get-Content src/pmove.c) -replace 'pmove\.cmd\.impulse_pred', 'pmove.cmd.impulse' | Set-Content src/pmove.c
+        $ids = Get-Content src/cmdline_params_ids.h -Raw
+        if ($ids -notmatch 'client_ruleset') {
+          $ids = $ids -replace '(client_noscripts.*\n)', "`$1CMDLINE_DEF(client_ruleset, `"-ruleset`"),`n"
+          Set-Content src/cmdline_params_ids.h $ids
+        }
 
     - name: Add vcpkg baseline to vcpkg.json
       shell: pwsh
