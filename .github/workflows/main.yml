@@ -47,13 +47,30 @@ jobs:
         grep -q 'void IN_SafeSwitch' src/cl_input.c || \
           echo 'void IN_SafeSwitch(void) { }' >> src/cl_input.c
 
+        # Remove all spray references (functions, variables, includes) from source
+        find src -type f \( -name "*.c" -o -name "*.h" \) | while read -r f; do
+          if grep -qiE "spray|CL_Sprays|cl_spray_" "$f"; then
+            echo "  Stripping spray references from: $f"
+            sed -i -E \
+              -e '/[Cc][Ll]_[Ss]pray/d' \
+              -e '/cl_sprays\.h/d' \
+              "$f"
+          fi
+        done
+
+        # Remove cl_sprays from CMakeLists
+        sed -i '/cl_sprays/d' CMakeLists.txt
+
+        # Delete spray files if they exist
+        rm -f src/cl_sprays.c src/cl_sprays.h
+
     - name: Fetch upstream tags
       run: |
         git remote add upstream https://github.com/QW-Group/ezquake-source.git || true
         git fetch --tags --no-recurse-submodules upstream || true
 
     - name: Cache ccache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.ccache
         key: linux-ccache-${{ github.ref }}-${{ github.sha }}
@@ -141,6 +158,25 @@ jobs:
           Add-Content src/cl_input.c "`nvoid IN_SafeSwitch(void) { }"
         }
 
+        # Remove all spray references (functions, variables, includes) from source
+        Get-ChildItem src -Recurse -Include *.c,*.h | ForEach-Object {
+          $txt = Get-Content $_.FullName -Raw
+          if ($txt -imatch 'spray|CL_Sprays|cl_spray_') {
+            Write-Host "  Stripping spray references from: $($_.Name)"
+            $lines = $txt -split "`n" | Where-Object {
+              $_ -notmatch '(?i)(CL_Sprays|cl_spray_)' -and $_ -notmatch 'cl_sprays\.h'
+            }
+            ($lines -join "`n") | Set-Content $_.FullName
+          }
+        }
+
+        # Remove cl_sprays from CMakeLists
+        (Get-Content CMakeLists.txt) | Where-Object { $_ -notmatch 'cl_sprays' } | Set-Content CMakeLists.txt
+
+        # Delete spray files if they exist
+        Remove-Item src/cl_sprays.c -ErrorAction SilentlyContinue
+        Remove-Item src/cl_sprays.h -ErrorAction SilentlyContinue
+
     - name: Add vcpkg baseline to vcpkg.json
       shell: pwsh
       run: |
@@ -168,7 +204,7 @@ jobs:
         cmakeVersion: "~3.28.0"
 
     - name: Cache vcpkg packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ${{ github.workspace }}/vcpkg/installed
@@ -182,6 +218,18 @@ jobs:
 
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
+
+    - name: Fix ezQuake.rc version strings
+      shell: pwsh
+      run: |
+        # RC2104: git hash macros must be quoted strings in .rc files
+        Get-ChildItem -Recurse -Filter "*.rc" | ForEach-Object {
+          $content = Get-Content $_.FullName -Raw
+          # Quote any unquoted define values that look like git hashes (7-40 hex chars)
+          $content = $content -replace '(#define\s+\w+\s+)([0-9a-fA-F]{7,40})(\s|$)', '$1"$2"$3'
+          Set-Content $_.FullName $content
+          Write-Host "Patched RC: $($_.FullName)"
+        }
 
     - name: Configure and Build
       uses: lukka/run-cmake@v10
