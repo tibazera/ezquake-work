@@ -351,12 +351,24 @@ static qbool FChecks_SystemRequest (const char *s)
 	return false;
 }
 
+extern cvar_t cl_nopred_weapon;
+extern cvar_t cl_predict_weaponsound;
+extern cvar_t cl_predict_smoothview;
+extern cvar_t cl_predict_beam;
+extern cvar_t cl_predict_projectiles;
+extern cvar_t cl_predict_jump;
+extern cvar_t cl_predict_buffer;
+
 static void FChecks_PredictResponse(void)
 {
-	if (cl_nopred.integer)
-		Cbuf_AddText("say prediction disabled (cl_nopred 1)\n");
-	else
-		Cbuf_AddText("say prediction enabled (cl_nopred 0)\n");
+	Cbuf_AddText(va("say {predict: wpnsound=%d beam=%d proj=%d jump=%d smooth=%d buf=%d nopred_wpn=%d}\n",
+		cl_predict_weaponsound.integer,
+		cl_predict_beam.integer,
+		cl_predict_projectiles.integer,
+		cl_predict_jump.integer,
+		cl_predict_smoothview.integer,
+		cl_predict_buffer.integer,
+		cl_nopred_weapon.integer));
 }
 
 static qbool FChecks_PredictRequest(const char *s)
