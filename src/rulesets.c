@@ -284,12 +284,14 @@ static void Rulesets_Smackdown(qbool enable)
 	extern cvar_t cl_iDrive;
 	extern cvar_t scr_allowsnap;
 	extern cvar_t cl_easyaircontrol;
+	extern cvar_t scr_teaminlay;
 	int i;
 
 	locked_cvar_t disabled_cvars[] = {
 		{&allow_scripts, "0"},      // disable movement scripting
 		{&cl_iDrive, "0"},          // disable strafing aid
 		{&cl_easyaircontrol, "0"},  // disable air control aid
+		{&scr_teaminlay, "0"},      // disable team inlay (shows teammate info)
 		{&cl_hud, "0"},             // allows you place any text on the screen & filter incoming messages (hud strings)
 		{&cl_rollalpha, "20"},      // allows you to not dodge while seeing enemies dodging
 		{&r_shiftbeam, "0"},        // perphaps some people would think this allows you to aim better (maybe should be added for demo playback and spectating only)
@@ -353,12 +355,14 @@ static void Rulesets_Qcon(qbool enable)
 	extern cvar_t allow_scripts;
 	extern cvar_t cl_iDrive;
 	extern cvar_t cl_easyaircontrol;
+	extern cvar_t scr_teaminlay;
 	int i;
 
 	locked_cvar_t disabled_cvars[] = {
 		{&allow_scripts, "0"},      // disable movement scripting
 		{&cl_iDrive, "0"},          // disable strafing aid
 		{&cl_easyaircontrol, "0"},  // disable air control aid
+		{&scr_teaminlay, "0"},      // disable team inlay (shows teammate info)
 		{&cl_hud, "0"},             // allows you place any text on the screen & filter incoming messages (hud strings)
 		{&cl_rollalpha, "20"},      // allows you to not dodge while seeing enemies dodging
 		{&r_shiftbeam, "0"}         // perphaps some people would think this allows you to aim better (maybe should be added for demo playback and spectating only)
@@ -419,12 +423,14 @@ static void Rulesets_Thunderdome(qbool enable)
 	extern cvar_t allow_scripts;
 	extern cvar_t cl_iDrive;
 	extern cvar_t cl_easyaircontrol;
+	extern cvar_t scr_teaminlay;
 	int i;
 
 	locked_cvar_t disabled_cvars[] = {
 		{&allow_scripts, "0"},      // disable movement scripting
 		{&cl_iDrive, "0"},          // disable strafing aid
 		{&cl_easyaircontrol, "0"},  // disable air control aid
+		{&scr_teaminlay, "0"},      // disable team inlay (shows teammate info)
 		{&cl_hud, "0"},             // allows you place any text on the screen & filter incoming messages (hud strings)
 		{&r_shiftbeam, "0"}         // perphaps some people would think this allows you to aim better (maybe should be added for demo playback and spectating only)
 	};
@@ -553,11 +559,13 @@ static void Rulesets_Smackdrive(qbool enable)
 	extern cvar_t allow_scripts;
 	extern cvar_t scr_allowsnap;
 	extern cvar_t cl_easyaircontrol;
+	extern cvar_t scr_teaminlay;
 	int i;
 
 	locked_cvar_t disabled_cvars[] = {
 		{&allow_scripts, "0"},      // disable movement scripting
 		{&cl_easyaircontrol, "0"},  // disable air control aid
+		{&scr_teaminlay, "0"},      // disable team inlay (shows teammate info)
 		{&cl_hud, "0"},             // allows you place any text on the screen & filter incoming messages (hud strings)
 		{&cl_rollalpha, "20"},      // allows you to not dodge while seeing enemies dodging
 		{&r_shiftbeam, "0"},        // perphaps some people would think this allows you to aim better (maybe should be added for demo playback and spectating only)
@@ -1004,9 +1012,16 @@ qbool Ruleset_IsLocalSinglePlayerGame(void)
 
 qbool Rulesets_RestrictInlay(void)
 {
-	// In ezQuake, inlay is not restricted by rulesets by default.
-	// Rulesets that want to restrict it should lock scr_teaminlay via Cvar_RulesetSet.
-	return false;
+	// Restricted under competitive rulesets (smackdown, qcon, thunderdome, smackdrive)
+	switch (rulesetDef.ruleset) {
+	case rs_smackdown:
+	case rs_smackdrive:
+	case rs_qcon:
+	case rs_thunderdome:
+		return true;
+	default:
+		return false;
+	}
 }
 
 void Rulesets_OnChange_cl_hud(cvar_t *var, char *value, qbool *cancel)
